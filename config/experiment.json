@@ -1,0 +1,20 @@
+{
+  "data_path": "data/raw/steam-200k.csv",
+  "seed": 42,
+  "min_user_interactions": 5,
+  "min_item_users": 3,
+  "evaluation": {
+    "k": 10,
+    "negative_samples": 100
+  },
+  "item_knn": {
+    "neighbors": 80
+  },
+  "bpr": {
+    "factors": 48,
+    "epochs": 25,
+    "batch_size": 2048,
+    "learning_rate": 0.04,
+    "regularization": 0.002
+  }
+}
