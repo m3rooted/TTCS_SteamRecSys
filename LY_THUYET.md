@@ -13,7 +13,7 @@ Ví dụ: người dùng đã chơi một số game chiến thuật; hệ thốn
 Các ký hiệu dùng trong tài liệu:
 
 | Ký hiệu | Ý nghĩa |
-|---|---|
+| --- | --- |
 | U, I | Tập người dùng và tập trò chơi |
 | u, i | Một người dùng và một trò chơi |
 | I_u | Các game người dùng u đã tương tác trong train |
@@ -37,7 +37,7 @@ Với Steam, mua hoặc chơi game là tín hiệu quan tâm, nhưng chưa chứ
 File [steam-200k.csv](data/raw/steam-200k.csv) gồm 200.000 dòng hành vi, không phải 200.000 người dùng. Thống kê trên file đã tải: 12.393 người dùng, 5.155 game, 129.511 dòng `purchase` và 70.489 dòng `play`.
 
 | Trường | Ý nghĩa |
-|---|---|
+| --- | --- |
 | user_id | Mã người dùng |
 | game | Tên trò chơi |
 | behavior | `purchase` hoặc `play` |
@@ -87,7 +87,7 @@ Content-based có thể khuyến nghị game mới có metadata, nhưng dễ l�
 Lọc cộng tác học từ quan hệ giữa người dùng và game trong lịch sử tương tác, không bắt buộc biết thể loại hay nội dung game.
 
 | Hướng tiếp cận | Ý tưởng |
-|---|---|
+| --- | --- |
 | User-based kNN | Tìm người có lịch sử tương tự rồi đề xuất game họ đã tương tác |
 | Item-based kNN | Tìm game thường được cùng một nhóm người tương tác |
 
@@ -130,7 +130,7 @@ Trong dự án, mô hình dùng mini-batch, giảm learning rate qua epoch và l
 Các tham số cần hiểu:
 
 | Tham số | Vai trò |
-|---|---|
+| --- | --- |
 | factors | Số chiều của vector người dùng và game |
 | epochs | Số lượt học qua tập tương tác |
 | batch_size | Số bộ ba xử lý trong một lần cập nhật |
@@ -198,7 +198,7 @@ Chỉ số trên ứng viên lấy mẫu không tương đương xếp hạng to
 ## 7. Đối chiếu với phần cài đặt
 
 | Nội dung | Tình trạng trong dự án |
-|---|---|
+| --- | --- |
 | Popularity | Đã cài đặt; đếm tương tác nhị phân trong train |
 | Item-kNN | Đã cài đặt; cosine nhị phân, hồ sơ người dùng có trọng số giờ chơi |
 | BPR-MF | Đã cài đặt; học từ cặp tương tác nhị phân, không dùng giờ chơi làm trọng số loss |
@@ -209,7 +209,7 @@ Chỉ số trên ứng viên lấy mẫu không tương đương xếp hạng to
 Sau lọc, bộ thực nghiệm có 3.744 người dùng, 3.338 game và 112.694 cặp tương tác; mật độ khoảng 0,902%. Kết quả đã chạy với seed 42:
 
 | Mô hình | Recall@10 lấy mẫu | NDCG@10 lấy mẫu | Coverage toàn catalog |
-|---|---:|---:|---:|
+| --- | ---: | ---: | ---: |
 | Popularity | 0,7118 | 0,4934 | 0,0171 |
 | Item-kNN | 0,8069 | 0,6262 | 0,3933 |
 | BPR-MF | 0,7746 | 0,5428 | 0,0953 |
