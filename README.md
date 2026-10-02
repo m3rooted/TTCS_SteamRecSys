@@ -14,7 +14,8 @@ TTCS/
 |-- requirements.txt         # Thư viện Python
 |-- config/experiment.json   # Cấu hình thí nghiệm
 |-- data/raw/                # Dữ liệu gốc
-|-- src/steam_recsys/        # Xử lý dữ liệu, mô hình, đánh giá
+|-- src/steam_recsys/        # Xử lý dữ liệu và chạy thí nghiệm
+|   `-- models/             # popularity.py, item_knn.py, bpr.py
 |-- tests/                   # File chờ An viết kiểm thử
 |-- reports/                 # Số liệu CSV, thống kê và biểu đồ
 `-- artifacts/              # Mô hình đã huấn luyện
@@ -33,6 +34,14 @@ python -m venv .venv
 
 Đã có `.venv` và dữ liệu thì chạy trực tiếp lệnh `train`. Lệnh này huấn luyện mô hình, lưu `artifacts/bpr_model.npz`, thống kê dữ liệu và loss huấn luyện; chưa tính chỉ số đánh giá hay sinh khuyến nghị.
 
+File BPR lưu cả tham số mô hình, ID người dùng, tên game và cấu hình BPR. Các hàng của `user_factors` tương ứng với `user_ids`; các hàng của `item_factors` và `item_bias` tương ứng với `item_titles`. Nạp bằng `numpy.load(..., allow_pickle=False)`. Ngưỡng `min_user_interactions` phải từ 3 trở lên để mỗi người dùng còn ít nhất một game train sau khi giữ lại validation/test.
+
+Kiểm tra các lỗi hồi quy của phần huấn luyện bằng:
+
+```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+```
+
 ## Phần chờ thực hiện
 
 | File | Công việc của Lương Đức Khải An |
@@ -45,4 +54,4 @@ python -m venv .venv
 
 Các file trên chỉ còn ghi chú TODO. Lệnh `tune` và `recommend` sẽ được nối lại khi có phần cài đặt.
 
-Phần biểu đồ/báo cáo dùng chung vẫn được giữ trong `experiment.py`; hàm vẽ biểu đồ chưa được gọi khi chưa có đánh giá. Các số liệu và biểu đồ hiện có trong `reports/` là kết quả từ lần chạy trước khi xóa code, không được lệnh `train` hiện tại cập nhật.
+Đã bỏ hàm vẽ biểu đồ chưa sử dụng và phụ thuộc Matplotlib. Khi triển khai đánh giá, phần báo cáo có thể được bổ sung riêng. Các chỉ số và biểu đồ so sánh hiện có trong `reports/` là kết quả cũ, không được lệnh `train` hiện tại cập nhật; lệnh này chỉ ghi lại thống kê dữ liệu và loss BPR.

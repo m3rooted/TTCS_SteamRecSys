@@ -33,13 +33,8 @@ def download_data(output: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Steam game recommendation")
-    commands = parser.add_subparsers(dest="command", required=True)
-    for name, description in (
-        ("download", "Download Steam-200k if missing"),
-        ("train", "Train the three models and save BPR parameters"),
-    ):
-        command = commands.add_parser(name, help=description)
-        command.add_argument("--config", default="config/experiment.json")
+    parser.add_argument("command", choices=("download", "train"))
+    parser.add_argument("--config", default="config/experiment.json")
     args = parser.parse_args()
 
     if args.command == "download":

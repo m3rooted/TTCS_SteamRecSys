@@ -63,6 +63,10 @@ def load_steam_interactions(
     min_user_interactions: int = 5,
     min_item_users: int = 3,
 ) -> InteractionData:
+    if min_user_interactions < 3:
+        raise ValueError("min_user_interactions must be at least 3 for leave-two-out")
+    if min_item_users < 1:
+        raise ValueError("min_item_users must be at least 1")
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(
@@ -96,34 +100,29 @@ def load_steam_interactions(
     if interactions.empty:
         raise ValueError("No interactions remain after k-core filtering")
 
-    user_ids = np.sort(interactions["user_id"].unique())
-    item_titles = np.sort(interactions["game"].astype(str).unique())
-    user_lookup = pd.Series(np.arange(len(user_ids), dtype=np.int32), index=user_ids)
-    item_lookup = pd.Series(
-        np.arange(len(item_titles), dtype=np.int32), index=item_titles
-    )
-    interactions["user_idx"] = interactions["user_id"].map(user_lookup).astype(np.int32)
-    interactions["item_idx"] = interactions["game"].map(item_lookup).astype(np.int32)
+    # Sorted codes provide stable user/game indices for all models.
+    interactions["user_idx"], user_ids = pd.factorize(interactions["user_id"], sort=True)
+    interactions["item_idx"], item_titles = pd.factorize(interactions["game"], sort=True)
     interactions["strength"] = (1.0 + np.log1p(interactions["playtime"])).astype(
         np.float32
     )
-    return InteractionData(interactions, user_ids, item_titles)
+    return InteractionData(interactions, user_ids.to_numpy(), item_titles.to_numpy())
 
 
 def leave_two_out_split(data: InteractionData, seed: int = 42) -> DataSplit:
+    counts = data.frame.groupby("user_idx").size()
+    if len(counts) != data.n_users or (counts < 3).any():
+        raise ValueError("Each user must have at least 3 interactions for leave-two-out")
     rng = np.random.default_rng(seed)
     train_rows: list[int] = []
     validation_item = np.full(data.n_users, -1, dtype=np.int32)
     test_item = np.full(data.n_users, -1, dtype=np.int32)
 
-    grouped = data.frame.groupby("user_idx", sort=True).indices
-    for user_idx in range(data.n_users):
-        rows = np.asarray(grouped[user_idx], dtype=np.int64)
+    items = data.frame["item_idx"].to_numpy()
+    for user_idx, rows in data.frame.groupby("user_idx", sort=True).indices.items():
         shuffled = rng.permutation(rows)
-        test_row, validation_row = shuffled[:2]
-        test_item[user_idx] = int(data.frame.iloc[test_row]["item_idx"])
-        validation_item[user_idx] = int(data.frame.iloc[validation_row]["item_idx"])
-        train_rows.extend(shuffled[2:].tolist())
+        test_item[user_idx], validation_item[user_idx] = items[shuffled[:2]]
+        train_rows.extend(shuffled[2:])
 
     train = data.frame.iloc[np.asarray(train_rows, dtype=np.int64)].copy()
     train_users = train["user_idx"].to_numpy(np.int32)
@@ -140,16 +139,14 @@ def leave_two_out_split(data: InteractionData, seed: int = 42) -> DataSplit:
     test_item[item_support[test_item] == 0] = -1
 
     user_train_items = tuple(
-        train_matrix.indices[train_matrix.indptr[u] : train_matrix.indptr[u + 1]].copy()
+        train_matrix.getrow(u).indices
         for u in range(data.n_users)
     )
     all_items: list[set[int]] = [set(items.tolist()) for items in user_train_items]
-    for user_idx, item_idx in enumerate(validation_item):
-        if item_idx >= 0:
-            all_items[user_idx].add(int(item_idx))
-    for user_idx, item_idx in enumerate(test_item):
-        if item_idx >= 0:
-            all_items[user_idx].add(int(item_idx))
+    for targets in (validation_item, test_item):
+        for user_idx, item_idx in enumerate(targets):
+            if item_idx >= 0:
+                all_items[user_idx].add(int(item_idx))
 
     return DataSplit(
         n_users=data.n_users,
