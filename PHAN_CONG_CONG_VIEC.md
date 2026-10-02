@@ -5,7 +5,7 @@
 Trạng thái và người thực hiện được ghi theo bảng phân công trong ảnh cung cấp.
 
 | STT | Hạng mục công việc | Trạng thái | Người thực hiện |
-|---:|---|---|---|
+| --- | --- | --- | --- |
 | 1 | Khai thác dữ liệu Steam-200k | Hoàn thành | Nguyễn Dương Quang |
 | 2 | Tiền xử lý và lọc k-core | Hoàn thành | Nguyễn Dương Quang |
 | 3 | Xây dựng mô hình Baseline và Item-kNN | Đang thực hiện | Nguyễn Dương Quang |

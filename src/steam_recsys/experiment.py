@@ -4,8 +4,32 @@ import time
 from pathlib import Path
 import numpy as np
 import pandas as pd
-from .data import leave_two_out_split, load_steam_interactions
+from .data import InteractionData, load_steam_interactions, leave_two_out_split
 from .models import BPRRecommender, ItemKNNRecommender, PopularityRecommender
+
+
+def save_bpr(model: BPRRecommender, data: InteractionData, path: str | Path) -> None:
+    if (
+        model.user_factors is None
+        or model.item_factors is None
+        or model.item_bias is None
+    ):
+        raise RuntimeError("Model must be fitted before saving")
+    np.savez_compressed(
+        path,
+        user_factors=model.user_factors,
+        item_factors=model.item_factors,
+        item_bias=model.item_bias,
+        losses=np.asarray(model.losses),
+        user_ids=data.user_ids,
+        item_titles=data.item_titles.astype(str),
+        factors=model.factors,
+        epochs=model.epochs,
+        batch_size=model.batch_size,
+        learning_rate=model.learning_rate,
+        regularization=model.regularization,
+        seed=model.seed,
+    )
 
 
 def run(config_path: str | Path = "config/experiment.json") -> pd.DataFrame:
@@ -34,7 +58,7 @@ def run(config_path: str | Path = "config/experiment.json") -> pd.DataFrame:
         rows.append({"model": model.name, "fit_seconds": fit_seconds})
         print(f"  Fit time: {fit_seconds:.2f}s")
         if isinstance(model, BPRRecommender):
-            model.save("artifacts/bpr_model.npz", data)
+            save_bpr(model, data, "artifacts/bpr_model.npz")
             pd.DataFrame(
                 {"epoch": np.arange(1, len(model.losses) + 1), "bpr_loss": model.losses}
             ).to_csv("reports/bpr_training_loss.csv", index=False)

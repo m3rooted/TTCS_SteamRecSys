@@ -1,9 +1,8 @@
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import numpy as np
 
-from ..data import DataSplit, InteractionData
+from ..data import DataSplit
 
 
 @dataclass
@@ -87,27 +86,4 @@ class BPRRecommender:
         return (
             self.item_factors[item_indices] @ self.user_factors[user_idx]
             + self.item_bias[item_indices]
-        )
-
-    def save(self, path: str | Path, data: InteractionData) -> None:
-        if (
-            self.user_factors is None
-            or self.item_factors is None
-            or self.item_bias is None
-        ):
-            raise RuntimeError("Model must be fitted before saving")
-        np.savez_compressed(
-            path,
-            user_factors=self.user_factors,
-            item_factors=self.item_factors,
-            item_bias=self.item_bias,
-            losses=np.asarray(self.losses),
-            user_ids=data.user_ids,
-            item_titles=data.item_titles.astype(str),
-            factors=self.factors,
-            epochs=self.epochs,
-            batch_size=self.batch_size,
-            learning_rate=self.learning_rate,
-            regularization=self.regularization,
-            seed=self.seed,
         )

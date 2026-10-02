@@ -28,7 +28,6 @@ Python 3.12 trở lên. Chạy trong thư mục `TTCS` bằng PowerShell:
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe main.py download
 .\.venv\Scripts\python.exe main.py train
 ```
 

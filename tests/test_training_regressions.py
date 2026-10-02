@@ -9,6 +9,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from steam_recsys.data import load_steam_interactions, leave_two_out_split
 from steam_recsys.models import BPRRecommender, ItemKNNRecommender, PopularityRecommender
+from steam_recsys import experiment
 
 
 class TrainingRegressionTests(unittest.TestCase):
@@ -34,7 +35,7 @@ class TrainingRegressionTests(unittest.TestCase):
     def test_saved_model_contains_ids_titles_and_training_config(self):
         model = BPRRecommender(epochs=1, factors=4).fit(self.split)
         output = Path(self.temp.name) / "model.npz"
-        model.save(output, self.data)
+        experiment.save_bpr(model, self.data, output)
         with np.load(output, allow_pickle=False) as saved:
             np.testing.assert_array_equal(saved["user_ids"], [10, 20, 30])
             np.testing.assert_array_equal(saved["item_titles"], ["A", "B", "C", "D"])
