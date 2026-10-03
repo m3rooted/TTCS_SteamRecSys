@@ -7,6 +7,7 @@ from ..data import DataSplit
 
 @dataclass
 class BPRRecommender:
+    # BPR học vector ẩn để xếp game có tương tác cao hơn game không có tương tác trong train.
     factors: int = 48
     epochs: int = 15
     batch_size: int = 2048
@@ -20,6 +21,7 @@ class BPRRecommender:
     losses: list[float] = field(default_factory=list)
 
     def fit(self, split: DataSplit) -> "BPRRecommender":
+        # Khởi tạo lại lịch sử loss, vector người dùng–game và bias khi huấn luyện.
         self.losses.clear()
         rng = np.random.default_rng(self.seed)
         scale = 0.1 / np.sqrt(self.factors)
@@ -30,16 +32,19 @@ class BPRRecommender:
             0, scale, size=(split.n_items, self.factors)
         ).astype(np.float32)
         self.item_bias = np.zeros(split.n_items, dtype=np.float32)
+        # Dùng tập hợp để kiểm tra nhanh game đã xuất hiện trong train của người dùng.
         positives = tuple(frozenset(items.tolist()) for items in split.user_train_items)
         learning_rate = self.learning_rate
 
         for _ in range(self.epochs):
+            # Xáo trộn tương tác ở mỗi epoch rồi chia thành các batch để cập nhật tham số.
             order = rng.permutation(len(split.train_users))
             epoch_loss = 0.0
             for start in range(0, len(order), self.batch_size):
                 selected = order[start : start + self.batch_size]
                 users = split.train_users[selected]
                 positive_items = split.train_items[selected]
+                # Lấy mẫu game âm và lấy lại nếu game đó thuộc tập tương tác train của người dùng.
                 negative_items = rng.integers(
                     0, split.n_items, size=len(selected), dtype=np.int32
                 )
@@ -52,14 +57,15 @@ class BPRRecommender:
                 negative_vectors = self.item_factors[negative_items]
                 positive_bias = self.item_bias[positive_items]
                 negative_bias = self.item_bias[negative_items]
-                # Điểm game đã chơi trừ điểm game chưa chơi.
+                # Chênh lệch điểm giữa game đã mua và game lấy ngẫu nhiên; BPR học để tăng chênh lệch này.
                 margins = positive_bias - negative_bias + np.sum(
                     user_vectors * (positive_vectors - negative_vectors), axis=1
                 )
+                # Giới hạn số mũ để tránh tràn số; logaddexp tính loss cặp một cách ổn định.
                 gradients = 1.0 / (1.0 + np.exp(np.clip(margins, -20, 20)))
                 epoch_loss += float(np.logaddexp(0, -margins).sum())
 
-                # Gradient của vector người dùng, hai game và bias.
+                # Tính hướng cập nhật vector; regularization hạn chế độ lớn tham số.
                 weight = gradients[:, None]
                 reg = self.regularization
                 user_gradient = weight * (positive_vectors - negative_vectors) - reg * user_vectors
@@ -72,17 +78,20 @@ class BPRRecommender:
                 np.add.at(self.item_factors, negative_items, learning_rate * negative_gradient)
                 np.add.at(self.item_bias, positive_items, learning_rate * (gradients - reg * positive_bias))
                 np.add.at(self.item_bias, negative_items, learning_rate * (-gradients - reg * negative_bias))
+            # Lưu loss cặp trung bình và giảm dần tốc độ học sau mỗi epoch.
             self.losses.append(epoch_loss / max(len(order), 1))
             learning_rate *= 0.96
         return self
 
     def score(self, user_idx: int, item_indices: np.ndarray) -> np.ndarray:
+        # Chỉ tính điểm sau khi các vector và bias đã được khởi tạo qua fit.
         if (
             self.user_factors is None
             or self.item_factors is None
             or self.item_bias is None
         ):
             raise RuntimeError("Model must be fitted before scoring")
+        # Điểm gợi ý bằng tích vô hướng vector người dùng–game cộng độ thiên lệch của game.
         return (
             self.item_factors[item_indices] @ self.user_factors[user_idx]
             + self.item_bias[item_indices]

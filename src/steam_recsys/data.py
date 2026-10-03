@@ -65,7 +65,7 @@ def load_steam_interactions(path, min_user_interactions=5, min_item_users=3):
     if interactions.empty:
         raise ValueError("No interactions remain after k-core filtering")
 
-    # Sorted codes provide stable user/game indices for all models.
+    # Các mã đã được sắp xếp cung cấp chỉ số người dùng/trò chơi ổn định cho tất cả các mẫu.
     interactions["user_idx"], user_ids = pd.factorize(interactions["user_id"], sort=True)
     interactions["item_idx"], item_titles = pd.factorize(interactions["game"], sort=True)
     interactions["strength"] = (1 + np.log1p(interactions["playtime"])).astype(np.float32)
