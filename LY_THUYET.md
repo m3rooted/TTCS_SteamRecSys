@@ -2,7 +2,17 @@
 
 Tài liệu phục vụ đề tài tìm hiểu, cài đặt và đánh giá hệ khuyến nghị game. Nội dung đi từ bài toán và dữ liệu đến thuật toán, thiết kế thực nghiệm và cách đọc kết quả.
 
-**Trạng thái mã nguồn:** phần khuyến nghị, đánh giá, so sánh cấu hình và kiểm thử đã được để trống cho Lương Đức Khải An thực hiện. Các mô tả quy trình dưới đây là thiết kế tham khảo; bảng kết quả ở mục 7 thuộc lần chạy trước khi xóa code.
+**Trạng thái mã nguồn hiện tại:** pipeline mặc định dùng Steam Games Dataset của FronkonGames, tạo đặc trưng từ metadata và gợi ý game tương tự theo nội dung. Tài liệu Steam-200k và các mô hình lọc cộng tác bên dưới là nền tảng lý thuyết của phiên bản trước, không còn là pipeline mặc định.
+
+## Pipeline hiện tại: gợi ý theo nội dung
+
+Dataset mới chứa thông tin theo game, không có danh tính người dùng hoặc cặp user-game đã chơi/mua. Vì vậy không thể dùng dataset này để huấn luyện BPR hoặc Item-kNN theo tương tác. Hệ thống dùng `AppID` làm khóa, `Name` để tra cứu/hiển thị, còn các trường trong cấu hình được chuyển thành vector đặc trưng.
+
+Các trường văn bản gồm `About the game`, `Reviews`, `Supported languages`, `Developers`, `Publishers`, `Categories`, `Genres`, `Tags` và tên game. Chúng được mã hóa TF-IDF riêng theo từng trường để mỗi nhóm metadata có đóng góp tương đương. Bộ đọc cũng nhận `detailed_description` làm tên thay thế cho `About the game`, như trong một số bản xuất dataset.
+
+Các trường số gồm ngày phát hành, owners ước lượng, peak CCU, required age, price, positive, recommendations, average playtime forever và Windows. Số lượng lớn được biến đổi log rồi chuẩn hóa theo cột. Khoảng owners được biểu diễn bằng trung điểm. Vector game được chuẩn hóa L2; điểm giữa hai game là cosine similarity. Lệnh `recommend` xếp hạng catalog theo độ giống với một game mẫu được xác định bằng AppID hoặc tên.
+
+Các mục tiếp theo mô tả Steam-200k và collaborative filtering như kiến thức nền. Bảng kết quả cũ không phải kết quả đo trên dataset FronkonGames.
 
 ## 1. Hệ khuyến nghị và bài toán đề tài
 

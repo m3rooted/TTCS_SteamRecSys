@@ -1,56 +1,49 @@
 # Hệ khuyến nghị trò chơi Steam
 
-Huấn luyện **Popularity**, **Item-kNN** và **BPR-MF** trên Steam-200k. Đọc cơ sở lý thuyết, công thức và cách đánh giá trong [LY_THUYET.md](LY_THUYET.md).
+Dự án dùng [Steam Games Dataset của FronkonGames trên Kaggle](https://www.kaggle.com/datasets/fronkongames/steam-games-dataset) để gợi ý game theo nội dung. Dataset này có một dòng cho mỗi game và không có lịch sử tương tác user-game, nên pipeline hiện tại biểu diễn game từ metadata rồi tìm các game tương tự.
 
-Phần khuyến nghị, đánh giá, so sánh cấu hình và kiểm thử đã được để trống để Lương Đức Khải An thực hiện theo [bảng phân công](PHAN_CONG_CONG_VIEC.md).
+## Dữ liệu
 
-## Cấu trúc
+Tải CSV từ Kaggle và đặt tại `data/raw/games.csv` (hoặc truyền đường dẫn khác bằng `--config`). Bộ đọc nhận tên cột dạng Kaggle như `AppID`, `Release date`, `Estimated owners`, `About the game`, `Supported languages`, `Average playtime forever`, đồng thời nhận tên snake_case. Các trường bắt buộc:
 
-```text
-TTCS/
-|-- main.py                  # Điểm chạy duy nhất
-|-- LY_THUYET.md             # Tài liệu lý thuyết tiếng Việt
-|-- README.md                # Hướng dẫn chạy
-|-- requirements.txt         # Thư viện Python
-|-- config/experiment.json   # Cấu hình thí nghiệm
-|-- data/raw/                # Dữ liệu gốc
-|-- src/steam_recsys/        # Xử lý dữ liệu và chạy thí nghiệm
-|   `-- models/             # popularity.py, item_knn.py, bpr.py
-|-- tests/                   # File chờ An viết kiểm thử
-|-- reports/                 # Số liệu CSV, thống kê và biểu đồ
-`-- artifacts/              # Mô hình đã huấn luyện
-```
+`AppID`, `Name`, `Release date`, `Estimated owners`, `Peak CCU`, `Required age`, `Price`, `About the game`, `Supported languages`, `Reviews`, `Windows`, `Positive`, `Recommendations`, `Average playtime forever`, `Developers`, `Publishers`, `Categories`, `Genres`, `Tags`.
 
-## Cài đặt và chạy
+`AppID` là khóa game, `Name` để tra cứu và hiển thị. Các trường còn lại được dùng làm đặc trưng. Văn bản được mã hóa TF-IDF; ngày phát hành, số chủ sở hữu ước lượng, CCU, giá, số đánh giá tích cực, đề xuất, thời lượng chơi, độ tuổi và hỗ trợ Windows được chuẩn hóa thành đặc trưng số. Tên cột `Supported language` cũng được chấp nhận.
 
-Python 3.12 trở lên. Chạy trong thư mục `TTCS` bằng PowerShell:
+Steam-200k cũ vẫn nằm trong `data/raw/steam-200k.csv` nhưng không còn là đầu vào mặc định.
+
+## Cài đặt và sử dụng
+
+Python 3.12 trở lên:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+Tạo chỉ mục đặc trưng và thống kê catalog:
+
+```powershell
 .\.venv\Scripts\python.exe main.py train
 ```
 
-Đã có `.venv` và dữ liệu thì chạy trực tiếp lệnh `train`. Lệnh này huấn luyện mô hình, lưu `artifacts/bpr_model.npz`, thống kê dữ liệu và loss huấn luyện; chưa tính chỉ số đánh giá hay sinh khuyến nghị.
-
-File BPR lưu cả tham số mô hình, ID người dùng, tên game và cấu hình BPR. Các hàng của `user_factors` tương ứng với `user_ids`; các hàng của `item_factors` và `item_bias` tương ứng với `item_titles`. Nạp bằng `numpy.load(..., allow_pickle=False)`. Ngưỡng `min_user_interactions` phải từ 3 trở lên để mỗi người dùng còn ít nhất một game train sau khi giữ lại validation/test.
-
-Kiểm tra các lỗi hồi quy của phần huấn luyện bằng:
+Gợi ý 10 game tương tự theo AppID hoặc tên game:
 
 ```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
+.\.venv\Scripts\python.exe main.py recommend --game "Portal 2" --top-k 10
 ```
 
-## Phần chờ thực hiện
+Kết quả `train` lưu ma trận thưa tại `artifacts/game_features.npz`, danh mục AppID/tên tại `artifacts/game_index.csv` và thống kê tại `reports/dataset_stats.json`. Lệnh `recommend` nhận game mẫu và dựng đặc trưng từ CSV cấu hình hiện tại.
 
-| File | Công việc của Lương Đức Khải An |
-|---|---|
-| `src/steam_recsys/recommend.py` | Khuyến nghị cho một người dùng |
-| `src/steam_recsys/evaluation.py` | Tính chỉ số đánh giá |
-| `src/steam_recsys/tuning.py` | So sánh cấu hình trên validation |
-| `tests/test_data.py` | Kiểm thử xử lý dữ liệu |
-| `tests/test_models.py` | Kiểm thử mô hình và pipeline |
+Có thể đổi đường dẫn CSV trong `config/experiment.json`, hoặc tạo config khác rồi truyền `--config path/to/config.json`.
 
-Các file trên chỉ còn ghi chú TODO. Lệnh `tune` và `recommend` sẽ được nối lại khi có phần cài đặt.
+## Cấu trúc
 
-Đã bỏ hàm vẽ biểu đồ chưa sử dụng và phụ thuộc Matplotlib. Khi triển khai đánh giá, phần báo cáo có thể được bổ sung riêng. Các chỉ số và biểu đồ so sánh hiện có trong `reports/` là kết quả cũ, không được lệnh `train` hiện tại cập nhật; lệnh này chỉ ghi lại thống kê dữ liệu và loss BPR.
+```text
+main.py                         # Lệnh train và recommend
+config/experiment.json          # Cấu hình đường dẫn dataset
+data/raw/                       # Dataset tải về
+src/steam_recsys/content_based.py # Đọc catalog, tạo đặc trưng, gợi ý
+artifacts/                      # Ma trận đặc trưng và chỉ mục game
+reports/                        # Thống kê catalog
+```

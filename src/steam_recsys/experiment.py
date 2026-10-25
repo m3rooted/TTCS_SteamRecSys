@@ -1,77 +1,50 @@
 from __future__ import annotations
+
 import json
-import time
 from pathlib import Path
-import numpy as np
+
 import pandas as pd
-from .data import InteractionData, load_steam_interactions, leave_two_out_split
-from .models import BPRRecommender, ItemKNNRecommender, PopularityRecommender
+
+from .content_based import ContentBasedRecommender, load_game_catalog
 
 
-def save_bpr(model: BPRRecommender, data: InteractionData, path: str | Path) -> None:
-    if (
-        model.user_factors is None
-        or model.item_factors is None
-        or model.item_bias is None
-    ):
-        raise RuntimeError("Model must be fitted before saving")
-    np.savez_compressed(
-        path,
-        user_factors=model.user_factors,
-        item_factors=model.item_factors,
-        item_bias=model.item_bias,
-        losses=np.asarray(model.losses),
-        user_ids=data.user_ids,
-        item_titles=data.item_titles.astype(str),
-        factors=model.factors,
-        epochs=model.epochs,
-        batch_size=model.batch_size,
-        learning_rate=model.learning_rate,
-        regularization=model.regularization,
-        seed=model.seed,
-    )
+def _load_config(config_path: str | Path) -> dict:
+    config_path = Path(config_path)
+    config = json.loads(config_path.read_text(encoding="utf-8"))
+    data_path = Path(config["data_path"])
+    if not data_path.is_absolute():
+        data_path = config_path.parent.parent / data_path
+    config["data_path"] = data_path
+    return config
+
+
+def build_recommender(config_path: str | Path = "config/experiment.json") -> ContentBasedRecommender:
+    config = _load_config(config_path)
+    catalog = load_game_catalog(str(config["data_path"]))
+    return ContentBasedRecommender.fit(catalog)
 
 
 def run(config_path: str | Path = "config/experiment.json") -> pd.DataFrame:
-    config_path = Path(config_path)
-    config = json.loads(config_path.read_text(encoding="utf-8"))
-    data = load_steam_interactions(
-        config["data_path"],
-        config["min_user_interactions"],
-        config["min_item_users"],
-    )
-    split = leave_two_out_split(data, config["seed"])
-    models = [
-        PopularityRecommender(),
-        ItemKNNRecommender(**config["item_knn"]),
-        BPRRecommender(seed=config["seed"], **config["bpr"]),
-    ]
-
-    rows: list[dict[str, float | str]] = []
+    """Build the content feature index and report catalog coverage."""
+    config = _load_config(config_path)
+    catalog = load_game_catalog(str(config["data_path"]))
+    recommender = ContentBasedRecommender.fit(catalog)
     Path("artifacts").mkdir(exist_ok=True)
     Path("reports").mkdir(exist_ok=True)
-    for model in models:
-        print(f"Training {model.name}...")
-        started = time.perf_counter()
-        model.fit(split)
-        fit_seconds = time.perf_counter() - started
-        rows.append({"model": model.name, "fit_seconds": fit_seconds})
-        print(f"  Fit time: {fit_seconds:.2f}s")
-        if isinstance(model, BPRRecommender):
-            save_bpr(model, data, "artifacts/bpr_model.npz")
-            pd.DataFrame(
-                {"epoch": np.arange(1, len(model.losses) + 1), "bpr_loss": model.losses}
-            ).to_csv("reports/bpr_training_loss.csv", index=False)
-
-    results = pd.DataFrame(rows)
     stats = {
-        "users": data.n_users,
-        "items": data.n_items,
-        "interactions": len(data.frame),
-        "train_interactions": len(split.train_items),
-        "density": len(data.frame) / (data.n_users * data.n_items),
+        "games": catalog.n_games,
+        "feature_count": recommender.features.shape[1],
+        "feature_fields": [field for field in catalog.frame.columns if field != "appid"],
     }
     Path("reports/dataset_stats.json").write_text(
         json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-    return results
+    # Keep a portable sparse feature index; column/name order is stored alongside it.
+    from scipy.sparse import save_npz
+    save_npz("artifacts/game_features.npz", recommender.features, compressed=True)
+    catalog.frame[["appid", "name"]].to_csv("artifacts/game_index.csv", index=False)
+    return pd.DataFrame([{"model": "Content-based", **stats}])
+
+
+def recommend(game: str, top_k: int = 10, config_path: str | Path = "config/experiment.json") -> pd.DataFrame:
+    return build_recommender(config_path).recommend(game, top_k)
