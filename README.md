@@ -33,6 +33,18 @@ Gợi ý 10 game tương tự theo AppID hoặc tên game:
 .\.venv\Scripts\python.exe main.py recommend --game "Portal 2" --top-k 10
 ```
 
+Khuyến nghị game chưa tương tác cho một người dùng:
+
+```powershell
+python src/steam_recsys/recommend.py --user 1001 --top-k 10
+```
+
+Thử nghiệm cấu hình BPR trên Validation:
+
+```powershell
+python src/steam_recsys/tuning.py --config config/experiment.json --output reports/bpr_validation_search.csv
+```
+
 Kết quả `train` lưu ma trận thưa tại `artifacts/game_features.npz`, danh mục AppID/tên tại `artifacts/game_index.csv` và thống kê tại `reports/dataset_stats.json`. Lệnh `recommend` nhận game mẫu và dựng đặc trưng từ CSV cấu hình hiện tại.
 
 Có thể đổi đường dẫn CSV trong `config/experiment.json`, hoặc tạo config khác rồi truyền `--config path/to/config.json`.
