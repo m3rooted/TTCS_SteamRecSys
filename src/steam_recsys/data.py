@@ -5,6 +5,7 @@ import pandas as pd
 from scipy.sparse import csr_matrix
 
 
+# Đóng gói dữ liệu tương tác đã làm sạch cùng danh sách ID gốc để tra cứu.
 @dataclass(frozen=True)
 class InteractionData:
     frame: pd.DataFrame
@@ -20,6 +21,7 @@ class InteractionData:
         return len(self.item_titles)
 
 
+# Kết quả chia dữ liệu: ma trận train và một game validation/test cho mỗi người dùng.
 @dataclass(frozen=True)
 class DataSplit:
     n_users: int
@@ -33,10 +35,12 @@ class DataSplit:
 
 
 def load_steam_interactions(path, min_user_interactions=5, min_item_users=3):
+    """Đọc Steam-200k, gộp hành vi mua/chơi và lọc dữ liệu theo k-core."""
     if min_user_interactions < 3:
         raise ValueError("min_user_interactions must be at least 3 for leave-two-out")
     if min_item_users < 1:
         raise ValueError("min_item_users must be at least 1")
+    # Steam-200k không có dòng tiêu đề; chỉ cần bốn cột đầu của dữ liệu.
     raw = pd.read_csv(path, header=None, usecols=[0, 1, 2, 3],
                       names=["user_id", "game", "behavior", "value", "unused"])
     raw["behavior"] = raw["behavior"].astype(str).str.lower()
@@ -46,6 +50,7 @@ def load_steam_interactions(path, min_user_interactions=5, min_item_users=3):
 
     raw["playtime"] = np.where(raw["behavior"].eq("play"), raw["value"], 0.0)
     raw["purchased"] = raw["behavior"].eq("purchase").astype(np.int8)
+    # Gộp các dòng trùng user-game: cộng thời lượng chơi và giữ cờ đã mua.
     interactions = raw.groupby(["user_id", "game"], as_index=False, sort=False).agg(
         playtime=("playtime", "sum"), purchased=("purchased", "max")
     )
@@ -68,11 +73,13 @@ def load_steam_interactions(path, min_user_interactions=5, min_item_users=3):
     # Các mã đã được sắp xếp cung cấp chỉ số người dùng/trò chơi ổn định cho tất cả các mẫu.
     interactions["user_idx"], user_ids = pd.factorize(interactions["user_id"], sort=True)
     interactions["item_idx"], item_titles = pd.factorize(interactions["game"], sort=True)
+    # Chuyển thời lượng chơi thành độ mạnh tương tác; log giảm ảnh hưởng ngoại lệ lớn.
     interactions["strength"] = (1 + np.log1p(interactions["playtime"])).astype(np.float32)
     return InteractionData(interactions, user_ids.to_numpy(), item_titles.to_numpy())
 
 
 def leave_two_out_split(data, seed=42):
+    """Giữ lại ngẫu nhiên hai game mỗi user cho validation và test; phần còn lại dùng train."""
     counts = data.frame.groupby("user_idx").size()
     if len(counts) != data.n_users or (counts < 3).any():
         raise ValueError("Each user must have at least 3 interactions for leave-two-out")
@@ -82,6 +89,7 @@ def leave_two_out_split(data, seed=42):
     test_item = np.full(data.n_users, -1, dtype=np.int32)
 
     items = data.frame["item_idx"].to_numpy()
+    # Dùng seed cố định để kết quả chia tập có thể tái lập.
     for user_idx, rows in data.frame.groupby("user_idx", sort=True).indices.items():
         shuffled = rng.permutation(rows)
         test_item[user_idx], validation_item[user_idx] = items[shuffled[:2]]
@@ -96,10 +104,12 @@ def leave_two_out_split(data, seed=42):
         dtype=np.float32,
     )
 
+    # Game không xuất hiện trong train không thể được mô hình học, nên bỏ khỏi tập đánh giá.
     item_support = np.bincount(train_items, minlength=data.n_items)
     validation_item[item_support[validation_item] == 0] = -1
     test_item[item_support[test_item] == 0] = -1
 
+    # Lưu danh sách game train từng user để mô hình lấy mẫu âm và loại game đã biết.
     user_train_items = tuple(train_matrix.getrow(u).indices for u in range(data.n_users))
 
     return DataSplit(

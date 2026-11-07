@@ -1,4 +1,4 @@
-"""Content-based recommendations from Steam game metadata."""
+"""Gợi ý game theo nội dung metadata như mô tả, thể loại, tag và giá."""
 
 from __future__ import annotations
 
@@ -58,6 +58,7 @@ def _normalize_header(value: str) -> str:
 
 
 def load_game_catalog(path: str) -> GameCatalog:
+    """Đọc CSV, chuẩn hóa tên cột và loại game thiếu tên/trùng AppID."""
     frame = pd.read_csv(path, low_memory=False)
     by_normalized = {_normalize_header(column): column for column in frame.columns}
     rename: dict[str, str] = {}
@@ -88,6 +89,7 @@ def _tokens(value: object) -> list[str]:
 
 
 def _field_tfidf(values: pd.Series, prefix: str = "") -> csr_matrix:
+    """Mã hóa một trường văn bản thành ma trận TF-IDF thưa, chuẩn hóa từng dòng."""
     documents = [_tokens(value) for value in values]
     vocabulary: dict[str, int] = {}
     document_frequency: dict[str, int] = {}
@@ -135,6 +137,7 @@ def _owners_midpoint(value: object) -> float:
 
 
 def _numeric_matrix(frame: pd.DataFrame) -> csr_matrix:
+    """Chuyển metadata số/ngày/Windows thành đặc trưng log và chuẩn hóa."""
     columns: list[np.ndarray] = []
     for field in NUMERIC_FIELDS:
         values = frame[field]
@@ -163,6 +166,7 @@ class ContentBasedRecommender:
 
     @classmethod
     def fit(cls, catalog: GameCatalog) -> "ContentBasedRecommender":
+        # Mỗi trường văn bản có từ vựng riêng; ghép với đặc trưng số rồi chuẩn hóa vector game.
         blocks = [_field_tfidf(catalog.frame[field]) / np.sqrt(len(TEXT_FIELDS)) for field in TEXT_FIELDS]
         numeric = _numeric_matrix(catalog.frame) / np.sqrt(len(NUMERIC_FIELDS))
         # Give each metadata field a comparable contribution regardless of vocabulary size.
@@ -173,6 +177,7 @@ class ContentBasedRecommender:
         return cls(catalog, features)
 
     def find_game(self, query: str) -> int:
+        """Tìm game theo AppID, tên chính xác hoặc tên khớp một phần không mơ hồ."""
         frame = self.catalog.frame
         query = str(query).strip()
         appid_match = frame.index[frame["appid"].astype(str).eq(query)].tolist()
@@ -190,6 +195,7 @@ class ContentBasedRecommender:
         raise ValueError(f"No game matched {query!r}")
 
     def recommend(self, game: str, top_k: int = 10) -> pd.DataFrame:
+        """Tính cosine similarity với game mẫu và trả về các game gần nhất."""
         if top_k < 1:
             raise ValueError("top_k must be at least 1")
         seed_idx = self.find_game(game)

@@ -9,6 +9,7 @@ from .content_based import ContentBasedRecommender, load_game_catalog
 
 
 def _load_config(config_path: str | Path) -> dict:
+    """Đọc cấu hình JSON và đổi đường dẫn dữ liệu tương đối thành đường dẫn tuyệt đối."""
     config_path = Path(config_path)
     config = json.loads(config_path.read_text(encoding="utf-8"))
     data_path = Path(config["data_path"])
@@ -19,13 +20,14 @@ def _load_config(config_path: str | Path) -> dict:
 
 
 def build_recommender(config_path: str | Path = "config/experiment.json") -> ContentBasedRecommender:
+    """Nạp catalog từ CSV và huấn luyện bộ gợi ý dựa trên metadata."""
     config = _load_config(config_path)
     catalog = load_game_catalog(str(config["data_path"]))
     return ContentBasedRecommender.fit(catalog)
 
 
 def run(config_path: str | Path = "config/experiment.json") -> pd.DataFrame:
-    """Build the content feature index and report catalog coverage."""
+    """Tạo chỉ mục đặc trưng thưa và lưu thống kê số lượng game/trường dữ liệu."""
     config = _load_config(config_path)
     catalog = load_game_catalog(str(config["data_path"]))
     recommender = ContentBasedRecommender.fit(catalog)
@@ -47,4 +49,5 @@ def run(config_path: str | Path = "config/experiment.json") -> pd.DataFrame:
 
 
 def recommend(game: str, top_k: int = 10, config_path: str | Path = "config/experiment.json") -> pd.DataFrame:
+    """Trả về top-k game giống game mẫu nhất trong catalog."""
     return build_recommender(config_path).recommend(game, top_k)
